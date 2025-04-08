@@ -4,16 +4,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
-  // Function to fetch activities from API
+  // Update fetchActivities to refresh the dropdown and activity list dynamically
   async function fetchActivities() {
     try {
       const response = await fetch("/activities");
       const activities = await response.json();
 
-      // Clear loading message
+      // Clear loading message and dropdown options
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
-      // Populate activities list
+      // Populate activities list and dropdown
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
@@ -27,7 +28,16 @@ document.addEventListener("DOMContentLoaded", () => {
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
           <p><strong>Participants:</strong></p>
           <ul>
-            ${details.participants.map(participant => `<li>${participant}</li>`).join("")}
+            ${details.participants
+              .map(
+                (participant) => `
+                  <li>
+                    ${participant}
+                    <span class="delete-icon" onclick="unregisterParticipant('${name}', '${participant}')">&times;</span>
+                  </li>
+                `
+              )
+              .join("")}
           </ul>
         `;
 
@@ -45,7 +55,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Handle form submission
+  // Add delete icon functionality to unregister participants
+  async function unregisterParticipant(activityName, email) {
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activityName)}/unregister?email=${encodeURIComponent(email)}`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (response.ok) {
+        alert(`Successfully removed ${email} from ${activityName}`);
+        fetchActivities(); // Refresh the activities list
+      } else {
+        const result = await response.json();
+        alert(result.detail || "An error occurred while unregistering.");
+      }
+    } catch (error) {
+      console.error("Error unregistering participant:", error);
+      alert("Failed to unregister. Please try again.");
+    }
+  }
+
+  // Update signup form submission to refresh activities dynamically
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -66,6 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities(); // Refresh activities dynamically
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
